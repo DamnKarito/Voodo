@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Lua Editor with Dynamic Tabs</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        #tabs {
+            display: flex;
+            background-color: #1e1e1e;
+            padding: 5px;
+        }
+
+        .tab {
+            background-color: #2d2d2d;
+            color: #ccc;
+            margin-right: 5px;
+            padding: 5px 10px;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .tab.active {
+            background-color: #3e3e3e;
+            color: #fff;
+        }
+
+        .tab .close {
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #addTabBtn {
+            width: 30px;
+            height: 30px;
+            font-size: 20px;
+            color: #ccc;
+            background: #2d2d2d;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #addTabBtn:hover {
+            background: #444;
+        }
+
+        #container {
+            height: calc(100% - 40px);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+
+    <div id="tabs">
+        <button id="addTabBtn" onclick="addNewTab()">+</button>
+    </div>
+
+    <div id="container"></div>
+
+    <script>
+        let editor;
+        let tabCounter = 1;
+        const tabData = {};
+        let activeTabId = null;
+
+        const defaultLuaCode = `-- Welcome to Bappalot Studios Luau Code Editor
+function Initialize()
+    print("Bappalot Studios Lua Module.")
+end
+
+Initialize()`;
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+
+        require(['vs/editor/editor.main'], function () {
+            monaco.languages.register({ id: 'lua' });
+
+            monaco.languages.setMonarchTokensProvider('lua', {
+                tokenizer: {
+                    root: [
+                        [/\b(function|end|if|then|else|elseif|for|in|do|while|repeat|until|return|local)\b/, "keyword"],
+                        [/\b(true|false|nil)\b/, "constant"],
+                        [/[a-zA-Z_]\w*/, "identifier"],
+                        [/\d+/, "number"],
+                        [/--.*/, "comment"],
+                        [/"([^"\\]|\\.)*$/, "string.invalid"],
+                        [/"([^"\\]|\\.)*"/, "string"],
+                    ]
+                }
+            });
+
+            editor = monaco.editor.create(document.getElementById('container'), {
+                value: '',
+                language: 'lua',
+                theme: 'vs-dark',
+                automaticLayout: true,
+            });
+
+            addNewTab(); // Open first tab by default
+        });
+
+        function addNewTab() {
+            const tabId = `tab${tabCounter}`;
+            const tabName = `${tabId}.lua`;
+            tabData[tabId] = defaultLuaCode;
+
+            const tabElement = document.createElement('div');
+            tabElement.classList.add('tab');
+            tabElement.id = tabId;
+            tabElement.innerHTML = `${tabName} <span class="close" onclick="closeTab('${tabId}', event)">×</span>`;
+            tabElement.onclick = () => switchTab(tabId);
+
+            const addBtn = document.getElementById('addTabBtn');
+            document.getElementById('tabs').insertBefore(tabElement, addBtn);
+
+            tabCounter++;
+            switchTab(tabId);
+        }
+
+        function switchTab(tabId) {
+            if (activeTabId && tabData[activeTabId] !== undefined) {
+                tabData[activeTabId] = editor.getValue(); // Save previous tab content
+            }
+
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const newTab = document.getElementById(tabId);
+            if (newTab) newTab.classList.add('active');
+
+            activeTabId = tabId;
+            editor.setValue(tabData[tabId] || '');
+        }
+
+        function closeTab(tabId, event) {
+            event.stopPropagation();
+
+            if (tabId === activeTabId) {
+                const otherTabs = Object.keys(tabData).filter(id => id !== tabId);
+                if (otherTabs.length > 0) {
+                    switchTab(otherTabs[0]);
+                } else {
+                    activeTabId = null;
+                    editor.setValue('');
+                }
+            }
+
+            delete tabData[tabId];
+            const tabEl = document.getElementById(tabId);
+            if (tabEl) tabEl.remove();
+        }
+
+        // For C# integration or other scripts
+        function getEditorCode() {
+            return editor ? editor.getValue() : "";
+        }
+
+        function setEditorCode(text) {
+            if (editor) {
+                editor.setValue(text);
+            }
+        }
+    </script>
+</body>
+</html>
